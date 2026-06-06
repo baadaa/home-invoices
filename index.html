@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoices</title>
+<style>
+/* ─────────────────────────────────────
+   TOKENS
+───────────────────────────────────── */
+:root {
+  --piano-accent:      #34A5CB;
+  --piano-accent-dark: #2984A3;
+  --piano-accent-light:#E8F6FB;
+  --lawn-accent:       #3A9E6F;
+  --lawn-accent-dark:  #2C7A55;
+  --lawn-accent-light: #E8F7F0;
+  --yellow:     #EFB212;
+  --amber:      #D97706;
+  --amber-light:#FEF3C7;
+  --gray-900:   #111827;
+  --gray-700:   #374151;
+  --gray-500:   #6B7280;
+  --gray-400:   #9CA3AF;
+  --gray-300:   #D1D5DB;
+  --gray-100:   #F3F4F6;
+  --white:      #FFFFFF;
+  /* active tab accent, swapped by JS */
+  --accent:      var(--piano-accent);
+  --accent-dark: var(--piano-accent-dark);
+  --accent-light:var(--piano-accent-light);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: #EAEFF0;
+  color: var(--gray-900);
+  min-height: 100vh;
+  padding: 1.5rem 1.5rem 3rem;
+}
+
+/* ─────────────────────────────────────
+   PAGE SHELL
+───────────────────────────────────── */
+.page { max-width: 680px; margin: 0 auto; }
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.page-header h1 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--gray-900);
+}
+
+/* ─────────────────────────────────────
+   TAB SWITCHER
+───────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  background: var(--white);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+  margin-bottom: 1.25rem;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 0.55rem 1rem;
+  border: none;
+  border-radius: 7px;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.18s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.tab-btn .tab-icon { font-size: 0.9rem; }
+
+.tab-btn.active-piano {
+  background: var(--piano-accent);
+  color: var(--white);
+  box-shadow: 0 1px 4px rgba(52,165,203,0.35);
+}
+.tab-btn.active-lawn {
+  background: var(--lawn-accent);
+  color: var(--white);
+  box-shadow: 0 1px 4px rgba(58,158,111,0.35);
+}
+
+/* ─────────────────────────────────────
+   APP PANELS
+───────────────────────────────────── */
+.app-panel { display: none; }
+.app-panel.visible { display: block; }
+
+/* ─────────────────────────────────────
+   SHARED CARD STYLES
+───────────────────────────────────── */
+.card {
+  background: var(--white);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.card-title {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.piano .card-title { color: var(--piano-accent-dark); }
+.lawn  .card-title { color: var(--lawn-accent-dark); }
+
+.field-label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  margin-bottom: 0.3rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+input[type="text"],
+input[type="date"],
+textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid var(--gray-300);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  color: var(--gray-900);
+  background: var(--white);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  -webkit-appearance: none;
+}
+input[type="date"] { cursor: pointer; }
+
+.piano input:focus, .piano textarea:focus {
+  outline: none;
+  border-color: var(--piano-accent);
+  box-shadow: 0 0 0 3px rgba(52,165,203,0.12);
+}
+.lawn input:focus, .lawn textarea:focus {
+  outline: none;
+  border-color: var(--lawn-accent);
+  box-shadow: 0 0 0 3px rgba(58,158,111,0.12);
+}
+input.error { border-color: #EF4444 !important; }
+
+.meta-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.add-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+/* ─────────────────────────────────────
+   TOGGLE ROWS (kids / services)
+───────────────────────────────────── */
+.toggle-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.toggle-group.row { flex-direction: row; }
+
+/* The clickable row */
+.tog-btn {
+  flex: 1;
+  padding: 0.5rem 0.65rem;
+  border: 1.5px solid var(--gray-300);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gray-500);
+  background: var(--white);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  text-align: left;
+}
+
+/* Custom checkbox box */
+.tog-box {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--gray-300);
+  border-radius: 4px;
+  background: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  font-size: 0;          /* hides checkmark when inactive */
+}
+
+.tog-label { flex: 1; }
+.tog-price {
+  font-size: 0.75rem;
+  font-weight: 700;
+  opacity: 0.45;
+  margin-left: auto;
+  transition: opacity 0.15s;
+}
+
+/* ── Piano / kid active ── */
+.tog-btn.kid-active {
+  border-color: var(--piano-accent);
+  background: var(--piano-accent-light);
+  color: var(--piano-accent-dark);
+}
+.tog-btn.kid-active .tog-box {
+  border-color: var(--piano-accent);
+  background: var(--piano-accent);
+  font-size: 10px;
+  color: var(--white);
+}
+.tog-btn.kid-active .tog-box::after { content: '✓'; }
+.tog-btn.kid-active .tog-price { opacity: 1; }
+
+/* ── Lawn flat active ── */
+.tog-btn.flat-active {
+  border-color: var(--lawn-accent);
+  background: var(--lawn-accent-light);
+  color: var(--lawn-accent-dark);
+}
+.tog-btn.flat-active .tog-box {
+  border-color: var(--lawn-accent);
+  background: var(--lawn-accent);
+  font-size: 10px;
+  color: var(--white);
+}
+.tog-btn.flat-active .tog-box::after { content: '✓'; }
+.tog-btn.flat-active .tog-price { opacity: 1; }
+
+/* ── Lawn hill active ── */
+.tog-btn.hill-active {
+  border-color: var(--amber);
+  background: var(--amber-light);
+  color: var(--amber);
+}
+.tog-btn.hill-active .tog-box {
+  border-color: var(--amber);
+  background: var(--amber);
+  font-size: 10px;
+  color: var(--white);
+}
+.tog-btn.hill-active .tog-box::after { content: '✓'; }
+.tog-btn.hill-active .tog-price { opacity: 1; color: var(--amber); }
+
+/* ─────────────────────────────────────
+   ADD FOOTER
+───────────────────────────────────── */
+.add-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.makeup-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+  color: var(--gray-500);
+  cursor: pointer;
+  user-select: none;
+}
+.makeup-check input[type="checkbox"] {
+  width: 15px; height: 15px;
+  padding: 0; cursor: pointer;
+  accent-color: var(--yellow);
+}
+
+.add-btn {
+  padding: 0.55rem 1.5rem;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.piano .add-btn { background: var(--piano-accent); }
+.piano .add-btn:hover { background: var(--piano-accent-dark); }
+.lawn  .add-btn { background: var(--lawn-accent); }
+.lawn  .add-btn:hover { background: var(--lawn-accent-dark); }
+.add-btn:active { transform: scale(0.98); }
+
+/* ─────────────────────────────────────
+   SESSION LIST
+───────────────────────────────────── */
+.sessions-list { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.sessions-empty {
+  text-align: center;
+  padding: 1.75rem;
+  color: var(--gray-400);
+  font-size: 0.875rem;
+}
+
+.session-item {
+  display: grid;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.875rem;
+  background: var(--gray-100);
+  border-radius: 8px;
+  border-left: 3px solid transparent;
+  animation: slideIn 0.18s ease;
+}
+/* Piano: date | tag | makeup | amt | del */
+.piano .session-item { grid-template-columns: 1fr auto auto auto auto; }
+/* Lawn:  date | tags | amt | del */
+.lawn  .session-item { grid-template-columns: 1fr auto auto auto; }
+
+@keyframes slideIn {
+  from { opacity:0; transform:translateY(-3px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* Piano accent colours */
+.piano .session-item.both { border-left-color: var(--piano-accent); }
+.piano .session-item.hana { border-left-color: var(--yellow); }
+.piano .session-item.haru { border-left-color: #A78BFA; }
+.piano .session-item.is-makeup { background: #FFFBEB; }
+
+/* Lawn accent colours */
+.lawn .session-item        { border-left-color: var(--lawn-accent); }
+.lawn .session-item.has-hill { border-left-color: var(--amber); background: #FFFDF5; }
+
+.session-date { font-weight:600; font-size:0.9rem; color:var(--gray-900); }
+
+.session-services { display:flex; gap:0.35rem; flex-wrap:wrap; }
+
+.tag {
+  font-size: 0.6375rem;
+  font-weight: 700;
+  padding: 0.175rem 0.5rem;
+  border-radius: 100px;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.tag-both { background:var(--piano-accent-light); color:var(--piano-accent-dark); }
+.tag-hana { background:#FEF3C7; color:#92400E; }
+.tag-haru { background:#EDE9FE; color:#5B21B6; }
+.tag-flat { background:var(--lawn-accent-light); color:var(--lawn-accent-dark); }
+.tag-hill { background:var(--amber-light); color:var(--amber); }
+
+.makeup-badge {
+  font-size: 0.6rem; font-weight:700; letter-spacing:0.07em;
+  text-transform:uppercase; color:#B45309; background:#FEF3C7;
+  padding:0.15rem 0.45rem; border-radius:100px;
+}
+
+.session-amount {
+  font-weight:700; font-size:0.9rem; color:var(--gray-700);
+  text-align:right; min-width:2.75rem;
+}
+
+.del-btn {
+  background:none; border:none; color:var(--gray-300);
+  cursor:pointer; font-size:1rem; line-height:1;
+  padding:0.2rem 0.3rem; border-radius:4px; transition:color 0.12s;
+}
+.del-btn:hover { color:#EF4444; }
+
+/* ─────────────────────────────────────
+   TOTALS
+───────────────────────────────────── */
+.totals-section { margin-top:1rem; }
+
+.totals-sub {
+  display:flex; justify-content:space-between;
+  font-size:0.8125rem; color:var(--gray-500);
+  padding:0.35rem 0; border-top:1px solid var(--gray-100);
+}
+
+.totals-grand {
+  display:flex; justify-content:space-between; align-items:baseline;
+  padding:0.75rem 0 0; margin-top:0.2rem;
+  border-top:2px solid var(--gray-900);
+}
+.g-label { font-weight:700; font-size:0.9375rem; }
+.g-amount {
+  font-size:1.5rem; font-weight:800; letter-spacing:-0.02em;
+}
+.piano .g-amount { color:var(--piano-accent-dark); }
+.lawn  .g-amount { color:var(--lawn-accent-dark); }
+
+/* ─────────────────────────────────────
+   ACTIONS
+───────────────────────────────────── */
+textarea { resize:vertical; min-height:56px; font-size:0.875rem; line-height:1.5; }
+
+.actions { display:flex; gap:0.75rem; margin-top:1rem; }
+
+.btn-print {
+  flex:1; padding:0.75rem; color:white; border:none;
+  border-radius:8px; font-family:inherit; font-size:0.9375rem;
+  font-weight:700; cursor:pointer; transition:background 0.15s;
+}
+.piano .btn-print { background:var(--gray-900); }
+.piano .btn-print:hover { background:var(--gray-700); }
+.lawn  .btn-print { background:var(--gray-900); }
+.lawn  .btn-print:hover { background:var(--gray-700); }
+
+.btn-clear {
+  padding:0.75rem 1.25rem; background:transparent;
+  color:var(--gray-500); border:1.5px solid var(--gray-300);
+  border-radius:8px; font-family:inherit; font-size:0.875rem;
+  font-weight:600; cursor:pointer; transition:all 0.15s;
+}
+.btn-clear:hover { border-color:var(--gray-500); color:var(--gray-700); }
+
+/* ─────────────────────────────────────
+   PRINT — shared invoice layout
+───────────────────────────────────── */
+#piano-print, #lawn-print { display:none; }
+
+@media print {
+  body { background:white; padding:0; font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; color:#111; }
+
+  .page { display:none !important; }
+
+  /* Only the active print pane shows */
+  .print-target { display:block !important; padding:0; }
+
+  .inv-header {
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding-bottom:14pt; border-bottom:2pt solid #111; margin-bottom:20pt;
+  }
+  .inv-title { font-size:20pt; font-weight:800; letter-spacing:-0.02em; }
+  .inv-subtitle { font-size:9pt; color:#6B7280; margin-top:3pt; }
+  .inv-header-right { text-align:right; }
+  .inv-period { font-size:11pt; font-weight:700; }
+  .inv-num { font-size:9pt; color:#6B7280; margin-top:2pt; }
+
+  .piano-print .inv-period { color:#2984A3; }
+  .lawn-print  .inv-period { color:#2C7A55; }
+
+  .inv-meta {
+    display:grid; grid-template-columns:1fr 1fr;
+    gap:16pt; margin-bottom:20pt;
+  }
+  .inv-meta-label {
+    font-size:7pt; font-weight:700; letter-spacing:0.1em;
+    text-transform:uppercase; color:#9CA3AF; margin-bottom:3pt;
+  }
+  .inv-meta-val { font-size:11pt; font-weight:500; }
+
+  table { width:100%; border-collapse:collapse; margin-bottom:14pt; font-size:10pt; }
+  thead th {
+    font-size:7pt; font-weight:700; letter-spacing:0.08em;
+    text-transform:uppercase; color:#6B7280; text-align:left;
+    padding:5pt 7pt; border-bottom:1pt solid #D1D5DB;
+  }
+  thead th:last-child { text-align:right; }
+  tbody td { padding:6pt 7pt; border-bottom:0.5pt solid #F3F4F6; vertical-align:middle; }
+  tbody td:last-child { text-align:right; font-weight:700; }
+  tbody tr:last-child td { border-bottom:none; }
+
+  .inv-pill {
+    display:inline-block; font-size:6pt; font-weight:700;
+    letter-spacing:0.07em; text-transform:uppercase;
+    padding:1pt 4pt; border-radius:20pt; margin-left:3pt; vertical-align:middle;
+  }
+  .inv-pill-makeup { background:#FEF3C7; color:#92400E; }
+  .inv-pill-flat   { background:#E8F7F0; color:#2C7A55; }
+  .inv-pill-hill   { background:#FEF3C7; color:#D97706; }
+
+  .inv-totals { margin-left:auto; width:220pt; }
+  .inv-totals-row {
+    display:flex; justify-content:space-between;
+    font-size:9pt; color:#6B7280; padding:3pt 0;
+  }
+  .inv-totals-final {
+    display:flex; justify-content:space-between; align-items:baseline;
+    border-top:2pt solid #111; padding-top:6pt; margin-top:4pt;
+  }
+  .inv-final-label { font-weight:700; font-size:11pt; }
+  .inv-final-amount { font-size:16pt; font-weight:800; letter-spacing:-0.02em; }
+
+  .inv-notes {
+    margin-top:16pt; padding:8pt 10pt; background:#F9FAFB;
+    border-radius:5pt; font-size:9pt; color:#374151;
+  }
+  .inv-notes-label {
+    font-size:6.5pt; font-weight:700; letter-spacing:0.1em;
+    text-transform:uppercase; color:#9CA3AF; margin-bottom:3pt;
+  }
+  .inv-footer {
+    margin-top:20pt; padding-top:10pt;
+    border-top:0.5pt solid #E5E7EB; font-size:8pt; color:#9CA3AF;
+  }
+
+  @page { margin:0.75in; size:letter; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     SCREEN UI
+══════════════════════════════════════ -->
+<div class="page">
+
+  <header class="page-header">
+    <h1>Invoices</h1>
+  </header>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar" role="tablist">
+    <button class="tab-btn" id="tab-piano" role="tab" type="button">
+      <span class="tab-icon">🎹</span> Piano Lessons
+    </button>
+    <button class="tab-btn" id="tab-lawn" role="tab" type="button">
+      <span class="tab-icon">🌿</span> Lawn Service
+    </button>
+  </div>
+
+  <!-- ── PIANO PANEL ── -->
+  <div class="app-panel piano" id="panel-piano" role="tabpanel">
+
+    <div class="card">
+      <div class="card-title">Invoice Details</div>
+      <div class="meta-row">
+        <div>
+          <label class="field-label" for="p-teacher-name">Teacher</label>
+          <input type="text" id="p-teacher-name" placeholder="e.g. Ms. Kim">
+        </div>
+        <div>
+          <label class="field-label" for="p-period">Month / Period</label>
+          <input type="text" id="p-period" placeholder="e.g. June 2025">
+        </div>
+        <div>
+          <label class="field-label" for="p-invoice-num">Invoice #</label>
+          <input type="text" id="p-invoice-num" placeholder="e.g. 2025-06">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Add Session</div>
+      <div class="add-grid">
+        <div>
+          <label class="field-label" for="p-session-date">Date</label>
+          <input type="date" id="p-session-date">
+        </div>
+        <div>
+          <label class="field-label">Attending</label>
+          <div class="toggle-group row">
+            <button class="tog-btn" id="p-btn-hana" type="button"><span class="tog-box"></span><span class="tog-label">Hana</span></button>
+            <button class="tog-btn" id="p-btn-haru" type="button"><span class="tog-box"></span><span class="tog-label">Haru</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="add-footer">
+        <label class="makeup-check">
+          <input type="checkbox" id="p-is-makeup"> Makeup session
+        </label>
+        <button class="add-btn" id="p-add-btn" type="button">Add Session</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Scheduled Sessions</div>
+      <div class="sessions-list" id="p-sessions-list">
+        <div class="sessions-empty" id="p-empty-msg">No sessions yet — add one above.</div>
+      </div>
+      <div id="p-totals-section" style="display:none" class="totals-section">
+        <div class="totals-sub" id="p-hana-row"></div>
+        <div class="totals-sub" id="p-haru-row"></div>
+        <div class="totals-grand">
+          <span class="g-label">Total Due</span>
+          <span class="g-amount" id="p-grand-total">$0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Notes <span style="font-weight:400;color:var(--gray-400);text-transform:none;letter-spacing:0;font-size:0.7rem;">(optional)</span></div>
+      <textarea id="p-notes" placeholder="e.g. Includes makeup from May. Rate: $45/child/session."></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="btn-print" id="p-print-btn" type="button">Print Invoice</button>
+      <button class="btn-clear" id="p-clear-btn" type="button">Clear</button>
+    </div>
+  </div><!-- /piano panel -->
+
+  <!-- ── LAWN PANEL ── -->
+  <div class="app-panel lawn" id="panel-lawn" role="tabpanel">
+
+    <div class="card">
+      <div class="card-title">Invoice Details</div>
+      <div class="meta-row">
+        <div>
+          <label class="field-label" for="l-provider-name">Service Provider</label>
+          <input type="text" id="l-provider-name" placeholder="e.g. Jose">
+        </div>
+        <div>
+          <label class="field-label" for="l-period">Period</label>
+          <input type="text" id="l-period" placeholder="e.g. June 2025">
+        </div>
+        <div>
+          <label class="field-label" for="l-invoice-num">Invoice #</label>
+          <input type="text" id="l-invoice-num" placeholder="e.g. 2025-06">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Add Visit</div>
+      <div class="add-grid">
+        <div>
+          <label class="field-label" for="l-session-date">Date</label>
+          <input type="date" id="l-session-date">
+        </div>
+        <div>
+          <label class="field-label">Services</label>
+          <div class="toggle-group">
+            <button class="tog-btn" id="l-btn-flat" type="button">
+              <span class="tog-box"></span>
+              <span class="tog-label">Front + Back (flat)</span>
+              <span class="tog-price">$75</span>
+            </button>
+            <button class="tog-btn" id="l-btn-hill" type="button">
+              <span class="tog-box"></span>
+              <span class="tog-label">Hill cleaning</span>
+              <span class="tog-price">+$40</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="add-footer">
+        <button class="add-btn" id="l-add-btn" type="button">Add Visit</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Scheduled Visits</div>
+      <div class="sessions-list" id="l-sessions-list">
+        <div class="sessions-empty" id="l-empty-msg">No visits yet — add one above.</div>
+      </div>
+      <div id="l-totals-section" style="display:none" class="totals-section">
+        <div class="totals-sub" id="l-flat-row"></div>
+        <div class="totals-sub" id="l-hill-row" style="display:none"></div>
+        <div class="totals-grand">
+          <span class="g-label">Total Due</span>
+          <span class="g-amount" id="l-grand-total">$0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Notes <span style="font-weight:400;color:var(--gray-400);text-transform:none;letter-spacing:0;font-size:0.7rem;">(optional)</span></div>
+      <textarea id="l-notes" placeholder="e.g. Hill cleaning every other visit. Cash preferred."></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="btn-print" id="l-print-btn" type="button">Print Invoice</button>
+      <button class="btn-clear" id="l-clear-btn" type="button">Clear</button>
+    </div>
+  </div><!-- /lawn panel -->
+
+</div><!-- /page -->
+
+<!-- ══════════════════════════════════════
+     PRINT PANES (hidden on screen)
+══════════════════════════════════════ -->
+<div id="piano-print" class="piano-print">
+  <div class="inv-header">
+    <div>
+      <div class="inv-title">Piano Lessons</div>
+      <div class="inv-subtitle" id="pp-teacher"></div>
+    </div>
+    <div class="inv-header-right">
+      <div class="inv-period" id="pp-period"></div>
+      <div class="inv-num" id="pp-num"></div>
+    </div>
+  </div>
+  <div class="inv-meta">
+    <div><div class="inv-meta-label">Students</div><div class="inv-meta-val">Hana &amp; Haru</div></div>
+    <div><div class="inv-meta-label">Rate</div><div class="inv-meta-val">$45 per child / per session</div></div>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>Date</th><th>Students</th><th>Sessions</th><th>Subtotal</th></tr></thead>
+    <tbody id="pp-tbody"></tbody>
+  </table>
+  <div class="inv-totals">
+    <div class="inv-totals-row" id="pp-hana-row"></div>
+    <div class="inv-totals-row" id="pp-haru-row"></div>
+    <div class="inv-totals-final">
+      <span class="inv-final-label">Total Due</span>
+      <span class="inv-final-amount" id="pp-total"></span>
+    </div>
+  </div>
+  <div id="pp-notes" class="inv-notes" style="display:none">
+    <div class="inv-notes-label">Notes</div>
+    <div id="pp-notes-text"></div>
+  </div>
+  <div class="inv-footer">Advance payment record — scheduled sessions as of <span id="pp-date"></span>. Please retain for your records.</div>
+</div>
+
+<div id="lawn-print" class="lawn-print">
+  <div class="inv-header">
+    <div>
+      <div class="inv-title">Lawn Service</div>
+      <div class="inv-subtitle" id="lp-provider"></div>
+    </div>
+    <div class="inv-header-right">
+      <div class="inv-period" id="lp-period"></div>
+      <div class="inv-num" id="lp-num"></div>
+    </div>
+  </div>
+  <div class="inv-meta">
+    <div><div class="inv-meta-label">Services</div><div class="inv-meta-val">Lawn mowing &amp; maintenance</div></div>
+    <div><div class="inv-meta-label">Rates</div><div class="inv-meta-val">Front + Back: $75 &nbsp;|&nbsp; Hill: +$40</div></div>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>Date</th><th>Services</th><th>Subtotal</th></tr></thead>
+    <tbody id="lp-tbody"></tbody>
+  </table>
+  <div class="inv-totals">
+    <div class="inv-totals-row" id="lp-flat-row"></div>
+    <div class="inv-totals-row" id="lp-hill-row" style="display:none"></div>
+    <div class="inv-totals-final">
+      <span class="inv-final-label">Total Due</span>
+      <span class="inv-final-amount" id="lp-total"></span>
+    </div>
+  </div>
+  <div id="lp-notes" class="inv-notes" style="display:none">
+    <div class="inv-notes-label">Notes</div>
+    <div id="lp-notes-text"></div>
+  </div>
+  <div class="inv-footer">Advance payment record — scheduled visits as of <span id="lp-date"></span>. Please retain for your records.</div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCRIPT
+══════════════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+
+  var DAYS   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function todayISO() {
+    var t = new Date();
+    return t.getFullYear() + '-' +
+      String(t.getMonth()+1).padStart(2,'0') + '-' +
+      String(t.getDate()).padStart(2,'0');
+  }
+
+  function formatFromISO(iso) {
+    var p = iso.split('-');
+    var d = new Date(+p[0], +p[1]-1, +p[2]);
+    return { label: MONTHS[d.getMonth()]+' '+d.getDate()+' ('+DAYS[d.getDay()]+')', ts: d.getTime() };
+  }
+
+  function nowLabel() {
+    return new Date().toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+  }
+
+  /* ── localStorage helpers ── */
+  function save(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+  }
+  function load(key, fallback) {
+    try { var v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback; } catch(e) { return fallback; }
+  }
+  function remove(key) {
+    try { localStorage.removeItem(key); } catch(e) {}
+  }
+
+  /* ────────────────────────────────────
+     TAB SWITCHER
+  ──────────────────────────────────── */
+  var tabPiano  = document.getElementById('tab-piano');
+  var tabLawn   = document.getElementById('tab-lawn');
+  var panelPiano= document.getElementById('panel-piano');
+  var panelLawn = document.getElementById('panel-lawn');
+
+  // Track which print pane to show on print
+  var activePrintId = 'piano-print';
+
+  function switchTab(which) {
+    // panels
+    panelPiano.classList.toggle('visible', which === 'piano');
+    panelLawn.classList.toggle('visible',  which === 'lawn');
+    // tab buttons
+    tabPiano.className = 'tab-btn' + (which === 'piano' ? ' active-piano' : '');
+    tabLawn.className  = 'tab-btn' + (which === 'lawn'  ? ' active-lawn'  : '');
+    activePrintId = which === 'piano' ? 'piano-print' : 'lawn-print';
+    save('invoices.activeTab', which);
+  }
+
+  tabPiano.addEventListener('click', function() { switchTab('piano'); });
+  tabLawn.addEventListener('click',  function() { switchTab('lawn'); });
+
+  // Before printing: mark only the active print pane
+  window.addEventListener('beforeprint', function () {
+    document.getElementById('piano-print').classList.remove('print-target');
+    document.getElementById('lawn-print').classList.remove('print-target');
+    document.getElementById(activePrintId).classList.add('print-target');
+  });
+  window.addEventListener('afterprint', function () {
+    document.getElementById('piano-print').classList.remove('print-target');
+    document.getElementById('lawn-print').classList.remove('print-target');
+  });
+
+  /* ────────────────────────────────────
+     PIANO APP
+  ──────────────────────────────────── */
+  (function pianoApp() {
+    var RATE = 45;
+    var LS   = { sessions: 'piano.sessions', meta: 'piano.meta', notes: 'piano.notes' };
+
+    var sessions = load(LS.sessions, []);
+    var nextId   = sessions.length ? Math.max.apply(null, sessions.map(function(s){return s.id;})) + 1 : 1;
+    var kidState = { hana: false, haru: false };
+
+    // DOM
+    var dateInput   = document.getElementById('p-session-date');
+    var btnHana     = document.getElementById('p-btn-hana');
+    var btnHaru     = document.getElementById('p-btn-haru');
+    var makeupChk   = document.getElementById('p-is-makeup');
+    var addBtn      = document.getElementById('p-add-btn');
+    var sessionList = document.getElementById('p-sessions-list');
+    var emptyMsg    = document.getElementById('p-empty-msg');
+    var totalsEl    = document.getElementById('p-totals-section');
+    var hanaRow     = document.getElementById('p-hana-row');
+    var haruRow     = document.getElementById('p-haru-row');
+    var grandTotalEl= document.getElementById('p-grand-total');
+    var printBtn    = document.getElementById('p-print-btn');
+    var clearBtn    = document.getElementById('p-clear-btn');
+
+    var teacherIn   = document.getElementById('p-teacher-name');
+    var periodIn    = document.getElementById('p-period');
+    var invNumIn    = document.getElementById('p-invoice-num');
+    var notesIn     = document.getElementById('p-notes');
+
+    // Restore meta fields
+    var meta = load(LS.meta, {});
+    if (meta.teacher) teacherIn.value = meta.teacher;
+    if (meta.period)  periodIn.value  = meta.period;
+    if (meta.invNum)  invNumIn.value  = meta.invNum;
+    notesIn.value = load(LS.notes, '');
+
+    // Persist meta fields on change
+    function saveMeta() {
+      save(LS.meta, { teacher: teacherIn.value, period: periodIn.value, invNum: invNumIn.value });
+    }
+    [teacherIn, periodIn, invNumIn].forEach(function(el) { el.addEventListener('input', saveMeta); });
+    notesIn.addEventListener('input', function() { save(LS.notes, notesIn.value); });
+
+    dateInput.value = todayISO();
+
+    function updateKidBtns() {
+      btnHana.className = 'tog-btn' + (kidState.hana ? ' kid-active' : '');
+      btnHaru.className = 'tog-btn' + (kidState.haru ? ' kid-active' : '');
+    }
+    btnHana.addEventListener('click', function() { kidState.hana = !kidState.hana; updateKidBtns(); });
+    btnHaru.addEventListener('click', function() { kidState.haru = !kidState.haru; updateKidBtns(); });
+
+    addBtn.addEventListener('click', function() {
+      var iso = dateInput.value;
+      if (!iso) { dateInput.classList.add('error'); setTimeout(function(){dateInput.classList.remove('error');},1500); return; }
+      if (!kidState.hana && !kidState.haru) {
+        btnHana.style.borderColor = btnHaru.style.borderColor = '#EF4444';
+        setTimeout(function(){ btnHana.style.borderColor = btnHaru.style.borderColor = ''; }, 1500);
+        return;
+      }
+      var fmt  = formatFromISO(iso);
+      var kids = [];
+      if (kidState.hana) kids.push('hana');
+      if (kidState.haru) kids.push('haru');
+      sessions.push({ id: nextId++, iso: iso, label: fmt.label, ts: fmt.ts,
+                      kids: kids, isMakeup: makeupChk.checked, subtotal: kids.length * RATE });
+      sessions.sort(function(a,b){ return a.ts - b.ts || a.id - b.id; });
+      save(LS.sessions, sessions);
+      makeupChk.checked = false;
+      kidState = { hana:false, haru:false };
+      updateKidBtns();
+      render();
+    });
+
+    function render() {
+      while (sessionList.firstChild) sessionList.removeChild(sessionList.firstChild);
+      if (sessions.length === 0) { sessionList.appendChild(emptyMsg); totalsEl.style.display = 'none'; return; }
+      emptyMsg.style.display = 'none';
+      var hanaCount = 0, haruCount = 0, grand = 0;
+
+      sessions.forEach(function(s) {
+        var both     = s.kids.indexOf('hana') >= 0 && s.kids.indexOf('haru') >= 0;
+        var onlyHana = s.kids.indexOf('hana') >= 0 && s.kids.indexOf('haru') < 0;
+        if (s.kids.indexOf('hana') >= 0) hanaCount++;
+        if (s.kids.indexOf('haru') >= 0) haruCount++;
+        grand += s.subtotal;
+
+        var cls    = both ? 'both' : onlyHana ? 'hana' : 'haru';
+        var tagCls = both ? 'tag-both' : onlyHana ? 'tag-hana' : 'tag-haru';
+        var tagLbl = both ? 'Hana + Haru' : onlyHana ? 'Hana' : 'Haru';
+
+        var item = document.createElement('div');
+        item.className = 'session-item ' + cls + (s.isMakeup ? ' is-makeup' : '');
+
+        var dd = document.createElement('div'); dd.className = 'session-date'; dd.textContent = s.label;
+        var tg = document.createElement('span'); tg.className = 'tag ' + tagCls; tg.textContent = tagLbl;
+        var mk = document.createElement('span');
+        if (s.isMakeup) { mk.className = 'makeup-badge'; mk.textContent = 'Makeup'; }
+        var am = document.createElement('div'); am.className = 'session-amount'; am.textContent = '$'+s.subtotal;
+        var dl = document.createElement('button'); dl.className = 'del-btn'; dl.type = 'button'; dl.textContent = '✕';
+        (function(sid){ dl.addEventListener('click', function(){
+          sessions = sessions.filter(function(x){return x.id!==sid;});
+          save(LS.sessions, sessions); render();
+        }); })(s.id);
+
+        item.appendChild(dd); item.appendChild(tg); item.appendChild(mk);
+        item.appendChild(am); item.appendChild(dl);
+        sessionList.appendChild(item);
+      });
+
+      totalsEl.style.display = 'block';
+      hanaRow.innerHTML = '<span>Hana &mdash; '+hanaCount+' session'+(hanaCount!==1?'s':'')+'</span><span>$'+(hanaCount*RATE)+'</span>';
+      haruRow.innerHTML = '<span>Haru &mdash; '+haruCount+' session'+(haruCount!==1?'s':'')+'</span><span>$'+(haruCount*RATE)+'</span>';
+      grandTotalEl.textContent = '$'+grand;
+    }
+
+    printBtn.addEventListener('click', function() {
+      if (!sessions.length) { alert('Add at least one session before printing.'); return; }
+      document.getElementById('pp-teacher').textContent = teacherIn.value ? 'Teacher: '+teacherIn.value : '';
+      document.getElementById('pp-period').textContent  = periodIn.value;
+      document.getElementById('pp-num').textContent     = invNumIn.value ? 'Invoice #'+invNumIn.value : '';
+      document.getElementById('pp-date').textContent    = nowLabel();
+      var tbody = document.getElementById('pp-tbody'); tbody.innerHTML = '';
+      var hC=0, rC=0, grand=0;
+      sessions.forEach(function(s,i){
+        if(s.kids.indexOf('hana')>=0) hC++;
+        if(s.kids.indexOf('haru')>=0) rC++;
+        grand += s.subtotal;
+        var both = s.kids.indexOf('hana')>=0 && s.kids.indexOf('haru')>=0;
+        var onlyH= s.kids.indexOf('hana')>=0 && s.kids.indexOf('haru')<0;
+        var kLbl = both?'Hana + Haru':onlyH?'Hana':'Haru';
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td style="color:#9CA3AF">'+(i+1)+'</td>'+
+          '<td>'+s.label+(s.isMakeup?'<span class="inv-pill inv-pill-makeup">makeup</span>':'')+'</td>'+
+          '<td>'+kLbl+'</td><td style="color:#6B7280;text-align:left">'+s.kids.length+'</td>'+
+          '<td>$'+s.subtotal+'</td>';
+        tbody.appendChild(tr);
+      });
+      document.getElementById('pp-hana-row').innerHTML = '<span>Hana ('+hC+' session'+(hC!==1?'s':'')+')</span><span>$'+(hC*RATE)+'</span>';
+      document.getElementById('pp-haru-row').innerHTML = '<span>Haru ('+rC+' session'+(rC!==1?'s':'')+')</span><span>$'+(rC*RATE)+'</span>';
+      document.getElementById('pp-total').textContent = '$'+grand;
+      var pn = document.getElementById('pp-notes');
+      var notesVal = notesIn.value.trim();
+      if (notesVal) { pn.style.display='block'; document.getElementById('pp-notes-text').textContent=notesVal; }
+      else { pn.style.display='none'; }
+      window.print();
+    });
+
+    clearBtn.addEventListener('click', function() {
+      if (sessions.length === 0 || confirm('Clear all piano sessions and form data?')) {
+        sessions = []; nextId = 1;
+        remove(LS.sessions); remove(LS.meta); remove(LS.notes);
+        teacherIn.value = periodIn.value = invNumIn.value = notesIn.value = '';
+        kidState = { hana:false, haru:false }; updateKidBtns();
+        makeupChk.checked = false;
+        render();
+      }
+    });
+
+    render();
+  })();
+
+  /* ────────────────────────────────────
+     LAWN APP
+  ──────────────────────────────────── */
+  (function lawnApp() {
+    var RATE_FLAT = 75, RATE_HILL = 40;
+    var LS = { sessions: 'lawn.sessions', meta: 'lawn.meta', notes: 'lawn.notes' };
+
+    var sessions = load(LS.sessions, []);
+    var nextId   = sessions.length ? Math.max.apply(null, sessions.map(function(s){return s.id;})) + 1 : 1;
+    var svcState = { flat:false, hill:false };
+
+    // DOM
+    var dateInput   = document.getElementById('l-session-date');
+    var btnFlat     = document.getElementById('l-btn-flat');
+    var btnHill     = document.getElementById('l-btn-hill');
+    var addBtn      = document.getElementById('l-add-btn');
+    var sessionList = document.getElementById('l-sessions-list');
+    var emptyMsg    = document.getElementById('l-empty-msg');
+    var totalsEl    = document.getElementById('l-totals-section');
+    var flatRowEl   = document.getElementById('l-flat-row');
+    var hillRowEl   = document.getElementById('l-hill-row');
+    var grandTotalEl= document.getElementById('l-grand-total');
+    var printBtn    = document.getElementById('l-print-btn');
+    var clearBtn    = document.getElementById('l-clear-btn');
+
+    var providerIn  = document.getElementById('l-provider-name');
+    var periodIn    = document.getElementById('l-period');
+    var invNumIn    = document.getElementById('l-invoice-num');
+    var notesIn     = document.getElementById('l-notes');
+
+    var meta = load(LS.meta, {});
+    if (meta.provider) providerIn.value = meta.provider;
+    if (meta.period)   periodIn.value   = meta.period;
+    if (meta.invNum)   invNumIn.value   = meta.invNum;
+    notesIn.value = load(LS.notes, '');
+
+    function saveMeta() {
+      save(LS.meta, { provider: providerIn.value, period: periodIn.value, invNum: invNumIn.value });
+    }
+    [providerIn, periodIn, invNumIn].forEach(function(el){ el.addEventListener('input', saveMeta); });
+    notesIn.addEventListener('input', function(){ save(LS.notes, notesIn.value); });
+
+    dateInput.value = todayISO();
+
+    function updateSvcBtns() {
+      btnFlat.className = 'tog-btn' + (svcState.flat ? ' flat-active' : '');
+      btnHill.className = 'tog-btn' + (svcState.hill ? ' hill-active' : '');
+    }
+    btnFlat.addEventListener('click', function(){ svcState.flat = !svcState.flat; updateSvcBtns(); });
+    btnHill.addEventListener('click', function(){ svcState.hill = !svcState.hill; updateSvcBtns(); });
+
+    addBtn.addEventListener('click', function() {
+      var iso = dateInput.value;
+      if (!iso) { dateInput.classList.add('error'); setTimeout(function(){dateInput.classList.remove('error');},1500); return; }
+      if (!svcState.flat && !svcState.hill) {
+        btnFlat.style.borderColor = btnHill.style.borderColor = '#EF4444';
+        setTimeout(function(){ btnFlat.style.borderColor = btnHill.style.borderColor = ''; },1500);
+        return;
+      }
+      var fmt = formatFromISO(iso);
+      var sub = (svcState.flat ? RATE_FLAT : 0) + (svcState.hill ? RATE_HILL : 0);
+      sessions.push({ id:nextId++, iso:iso, label:fmt.label, ts:fmt.ts,
+                      flat:svcState.flat, hill:svcState.hill, subtotal:sub });
+      sessions.sort(function(a,b){ return a.ts-b.ts||a.id-b.id; });
+      save(LS.sessions, sessions);
+      svcState = { flat:false, hill:false }; updateSvcBtns();
+      render();
+    });
+
+    function render() {
+      while (sessionList.firstChild) sessionList.removeChild(sessionList.firstChild);
+      if (sessions.length === 0) { sessionList.appendChild(emptyMsg); totalsEl.style.display='none'; return; }
+      emptyMsg.style.display = 'none';
+      var fC=0, hC=0, grand=0;
+
+      sessions.forEach(function(s){
+        if(s.flat) fC++; if(s.hill) hC++;
+        grand += s.subtotal;
+
+        var item = document.createElement('div');
+        item.className = 'session-item' + (s.hill ? ' has-hill' : '');
+
+        var dd = document.createElement('div'); dd.className='session-date'; dd.textContent=s.label;
+        var tv = document.createElement('div'); tv.className='session-services';
+        if(s.flat){ var t1=document.createElement('span'); t1.className='tag tag-flat'; t1.textContent='Front + Back'; tv.appendChild(t1); }
+        if(s.hill){ var t2=document.createElement('span'); t2.className='tag tag-hill'; t2.textContent='Hill'; tv.appendChild(t2); }
+        var am = document.createElement('div'); am.className='session-amount'; am.textContent='$'+s.subtotal;
+        var dl = document.createElement('button'); dl.className='del-btn'; dl.type='button'; dl.textContent='✕';
+        (function(sid){ dl.addEventListener('click',function(){
+          sessions=sessions.filter(function(x){return x.id!==sid;});
+          save(LS.sessions,sessions); render();
+        }); })(s.id);
+
+        item.appendChild(dd); item.appendChild(tv); item.appendChild(am); item.appendChild(dl);
+        sessionList.appendChild(item);
+      });
+
+      totalsEl.style.display = 'block';
+      flatRowEl.innerHTML = '<span>Flat mowing &mdash; '+fC+' visit'+(fC!==1?'s':'')+'</span><span>$'+(fC*RATE_FLAT)+'</span>';
+      if(hC>0){ hillRowEl.style.display='flex'; hillRowEl.innerHTML='<span>Hill cleaning &mdash; '+hC+' visit'+(hC!==1?'s':'')+'</span><span>$'+(hC*RATE_HILL)+'</span>'; }
+      else { hillRowEl.style.display='none'; }
+      grandTotalEl.textContent = '$'+grand;
+    }
+
+    printBtn.addEventListener('click', function(){
+      if(!sessions.length){ alert('Add at least one visit before printing.'); return; }
+      document.getElementById('lp-provider').textContent = providerIn.value ? 'Provider: '+providerIn.value : '';
+      document.getElementById('lp-period').textContent   = periodIn.value;
+      document.getElementById('lp-num').textContent      = invNumIn.value ? 'Invoice #'+invNumIn.value : '';
+      document.getElementById('lp-date').textContent     = nowLabel();
+      var tbody = document.getElementById('lp-tbody'); tbody.innerHTML='';
+      var fC=0,hC=0,grand=0;
+      sessions.forEach(function(s,i){
+        if(s.flat) fC++; if(s.hill) hC++; grand+=s.subtotal;
+        var svcs=[];
+        if(s.flat) svcs.push('<span class="inv-pill inv-pill-flat">Front + Back</span>');
+        if(s.hill) svcs.push('<span class="inv-pill inv-pill-hill">Hill</span>');
+        var tr=document.createElement('tr');
+        tr.innerHTML='<td style="color:#9CA3AF">'+(i+1)+'</td><td>'+s.label+'</td><td>'+svcs.join(' ')+'</td><td>$'+s.subtotal+'</td>';
+        tbody.appendChild(tr);
+      });
+      document.getElementById('lp-flat-row').innerHTML='<span>Flat mowing ('+fC+' visit'+(fC!==1?'s':'')+')</span><span>$'+(fC*RATE_FLAT)+'</span>';
+      var lhr=document.getElementById('lp-hill-row');
+      if(hC>0){ lhr.style.display='flex'; lhr.innerHTML='<span>Hill cleaning ('+hC+' visit'+(hC!==1?'s':'')+')</span><span>$'+(hC*RATE_HILL)+'</span>'; }
+      else { lhr.style.display='none'; }
+      document.getElementById('lp-total').textContent='$'+grand;
+      var pn=document.getElementById('lp-notes'); var nv=notesIn.value.trim();
+      if(nv){ pn.style.display='block'; document.getElementById('lp-notes-text').textContent=nv; } else { pn.style.display='none'; }
+      window.print();
+    });
+
+    clearBtn.addEventListener('click', function(){
+      if(sessions.length===0||confirm('Clear all lawn visits and form data?')){
+        sessions=[]; nextId=1;
+        remove(LS.sessions); remove(LS.meta); remove(LS.notes);
+        providerIn.value=periodIn.value=invNumIn.value=notesIn.value='';
+        svcState={flat:false,hill:false}; updateSvcBtns();
+        render();
+      }
+    });
+
+    render();
+  })();
+
+  /* ── Restore active tab ── */
+  var savedTab = load('invoices.activeTab', 'piano');
+  switchTab(savedTab);
+
+})();
+</script>
+</body>
+</html>
